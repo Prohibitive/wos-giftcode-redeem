@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WOS - Toplu Kupon Kullanma</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f1419;
+    color: #e6e6e6;
+    min-height: 100vh;
+    padding: 20px;
+    line-height: 1.5;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 8px; color: #fff; }
+  .subtitle { color: #888; font-size: 14px; margin-bottom: 24px; }
+  .panel {
+    background: #1a1f2e;
+    border: 1px solid #2a3142;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel h2 { font-size: 16px; margin-bottom: 12px; color: #fff; font-weight: 500; }
+  .row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 150px; }
+  input, textarea, button, select {
+    background: #0f1419;
+    border: 1px solid #2a3142;
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #e6e6e6;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  input:focus, textarea:focus { outline: none; border-color: #4a7cff; }
+  textarea { resize: vertical; min-height: 80px; width: 100%; }
+  button {
+    cursor: pointer;
+    background: #4a7cff;
+    border: none;
+    color: #fff;
+    font-weight: 500;
+    transition: background 0.15s;
+    flex: 0 0 auto;
+    padding: 10px 18px;
+  }
+  button:hover:not(:disabled) { background: #3563dc; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: #2a3142; }
+  button.secondary:hover:not(:disabled) { background: #3a4255; }
+  button.danger { background: #c84545; }
+  button.danger:hover:not(:disabled) { background: #a83838; }
+  .id-list {
+    max-height: 320px;
+    overflow-y: auto;
+    background: #0f1419;
+    border: 1px solid #2a3142;
+    border-radius: 6px;
+    padding: 8px;
+  }
+  .id-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    background: #1a1f2e;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 13px;
+    gap: 8px;
+  }
+  .id-item .info { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0; flex-wrap: wrap; }
+  .id-item .name { color: #888; font-family: inherit; font-size: 12px; }
+  .id-item .detail {
+    color: #aaa;
+    font-family: inherit;
+    font-size: 11px;
+    flex-basis: 100%;
+    margin-top: 4px;
+    word-break: break-word;
+  }
+  .id-item button {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid #c84545;
+    color: #c84545;
+    flex: 0 0 auto;
+  }
+  .id-item button:hover { background: #c84545; color: #fff; }
+  .id-item.processing { background: #2a3a5c; }
+  .id-item.success { background: #1a3a2a; }
+  .id-item.error { background: #3a1f1f; }
+  .id-item.skipped { background: #3a2f1a; }
+  .status-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #2a3142;
+    white-space: nowrap;
+  }
+  .status-badge.success { background: #2a5c3a; color: #7cd99c; }
+  .status-badge.error { background: #5c2a2a; color: #ff8888; }
+  .status-badge.skipped { background: #5c4a2a; color: #ffcc66; }
+  .status-badge.processing { background: #2a4a5c; color: #88c8ff; }
+  .stats { display: flex; gap: 16px; margin-top: 12px; font-size: 13px; flex-wrap: wrap; }
+  .stat { color: #888; }
+  .stat strong { color: #fff; margin-left: 4px; }
+  .empty { text-align: center; color: #666; padding: 30px; font-size: 13px; }
+  .info-box {
+    background: #1a2a3a;
+    border-left: 3px solid #4a7cff;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #b8c8d8;
+    margin-bottom: 12px;
+  }
+  .info-box code {
+    background: #0f1419;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  label { font-size: 13px; color: #aaa; display: block; margin-bottom: 6px; }
+  .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #0f1419;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 12px;
+    display: none;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #4a7cff;
+    width: 0;
+    transition: width 0.3s;
+  }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: #888; font-size: 13px; padding: 4px 0; }
+  summary:hover { color: #aaa; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎁 WOS Toplu Kupon Kullanma</h1>
+  <p class="subtitle">Whiteout Survival - Kayıtlı ID'lere tek tıkla toplu redeem</p>
+
+  <div class="panel">
+    <h2>⚙️ API Ayarı</h2>
+    <div class="info-box">
+      <strong>Default:</strong> <code>https://wgr.vercel.app</code> (test edildi, çalışıyor)<br>
+      CORS hatası alırsan: HTML'i kendi Vercel deployment'ına yükle, buraya <strong>kendi URL'ni</strong> yaz.
+    </div>
+    <input type="text" id="apiBase" placeholder="https://wgr.vercel.app" style="width:100%;">
+  </div>
+
+  <div class="panel">
+    <h2>👥 Oyuncu ID Listesi</h2>
+    <label>Toplu ID ekle (her satıra bir ID, opsiyonel: <code>ID, isim</code>)</label>
+    <textarea id="bulkInput" placeholder="123456789&#10;987654321, Ahmet&#10;111222333, Mehmet"></textarea>
+    <div class="row" style="margin-top: 8px;">
+      <button onclick="addBulk()">➕ Listeye Ekle</button>
+      <button class="secondary" onclick="exportIds()">💾 Dışa Aktar (JSON)</button>
+      <button class="secondary" onclick="document.getElementById('importFile').click()">📂 İçe Aktar</button>
+      <input type="file" id="importFile" accept=".json,.txt" style="display:none" onchange="importIds(event)">
+      <button class="danger" onclick="clearAll()">🗑️ Tümünü Sil</button>
+    </div>
+    <div class="stats">
+      <span class="stat">Kayıtlı: <strong id="totalCount">0</strong></span>
+    </div>
+    <div class="id-list" id="idList" style="margin-top: 12px;">
+      <div class="empty">Henüz ID eklenmedi</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>🎟️ Kupon Kodu Uygula</h2>
+    <div class="row">
+      <input type="text" id="couponCode" placeholder="Kupon kodu (örn: HappyMayDay)">
+      <button id="applyBtn" onclick="applyToAll()">🚀 Tüm ID'lere Uygula</button>
+      <button class="danger" id="stopBtn" onclick="stopProcess()" style="display:none;">⏹ Durdur</button>
+    </div>
+    <details>
+      <summary>Gelişmiş ayarlar</summary>
+      <div class="row" style="margin-top: 8px;">
+        <div>
+          <label>İstekler arası bekleme (ms)</label>
+          <input type="number" id="delay" value="2000" min="500" max="10000">
+        </div>
+        <div>
+          <label>Hatada</label>
+          <select id="onError">
+            <option value="continue">Devam et</option>
+            <option value="stop">Dur</option>
+          </select>
+        </div>
+      </div>
+    </details>
+    <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="stats" id="resultStats" style="display:none;">
+      <span class="stat">İşlenen: <strong id="processedCount">0</strong></span>
+      <span class="stat">Başarılı: <strong id="successCount" style="color:#7cd99c;">0</strong></span>
+      <span class="stat">Zaten Kullanmış: <strong id="skippedCount" style="color:#ffcc66;">0</strong></span>
+      <span class="stat">Hatalı: <strong id="errorCount" style="color:#ff8888;">0</strong></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'wos_player_ids';
+  const API_KEY = 'wos_api_base';
+  let players = [];
+  let stopRequested = false;
+  let processing = false;
+
+  function load() {
+    try {
+      players = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    } catch (e) { players = []; }
+    document.getElementById('apiBase').value = localStorage.getItem(API_KEY) || 'https://wgr.vercel.app';
+    render();
+  }
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+    localStorage.setItem(API_KEY, document.getElementById('apiBase').value.trim() || 'https://wgr.vercel.app');
+  }
+
+  function render() {
+    const list = document.getElementById('idList');
+    document.getElementById('totalCount').textContent = players.length;
+    if (players.length === 0) {
+      list.innerHTML = '<div class="empty">Henüz ID eklenmedi</div>';
+      return;
+    }
+    list.innerHTML = players.map((p, i) => `
+      <div class="id-item" id="item-${i}">
+        <div class="info">
+          <span>${p.id}</span>
+          ${p.name ? `<span class="name">${escapeHtml(p.name)}</span>` : ''}
+          <span class="status-badge" id="status-${i}" style="display:none;"></span>
+          <span class="detail" id="detail-${i}" style="display:none;"></span>
+        </div>
+        <button onclick="removeId(${i})">Sil</button>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function addBulk() {
+    const text = document.getElementById('bulkInput').value.trim();
+    if (!text) return;
+    const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    let added = 0, skipped = 0;
+    const existing = new Set(players.map(p => p.id));
+    for (const line of lines) {
+      const [idPart, ...nameParts] = line.split(/[,;\t]/);
+      const id = idPart.trim().replace(/\D/g, '');
+      const name = nameParts.join(',').trim();
+      if (!id) continue;
+      if (existing.has(id)) { skipped++; continue; }
+      players.push({ id, name });
+      existing.add(id);
+      added++;
+    }
+    save(); render();
+    document.getElementById('bulkInput').value = '';
+    if (skipped > 0) {
+      alert(`${added} ID eklendi, ${skipped} ID zaten listede olduğu için atlandı.`);
+    }
+  }
+
+  function removeId(i) {
+    players.splice(i, 1);
+    save(); render();
+  }
+
+  function clearAll() {
+    if (players.length === 0) return;
+    if (!confirm(`${players.length} ID silinecek. Emin misin?`)) return;
+    players = [];
+    save(); render();
+  }
+
+  function exportIds() {
+    if (players.length === 0) return alert('Liste boş.');
+    const blob = new Blob([JSON.stringify(players, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wos-ids-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importIds(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const text = e.target.result;
+        let imported;
+        if (file.name.endsWith('.json')) {
+          imported = JSON.parse(text);
+        } else {
+          imported = text.split(/\n+/).map(l => l.trim()).filter(Boolean).map(l => {
+            const [id, ...nameParts] = l.split(/[,;\t]/);
+            return { id: id.trim().replace(/\D/g, ''), name: nameParts.join(',').trim() };
+          }).filter(p => p.id);
+        }
+        const existing = new Set(players.map(p => p.id));
+        let added = 0;
+        for (const p of imported) {
+          if (p.id && !existing.has(p.id)) {
+            players.push({ id: p.id, name: p.name || '' });
+            existing.add(p.id);
+            added++;
+          }
+        }
+        save(); render();
+        alert(`${added} yeni ID eklendi.`);
+      } catch (err) {
+        alert('Dosya okunamadı: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  // API cevap formatı: { "message": "Login {id}: success<br>Redeemed {code} for {id}: {result}" }
+  function parseResponse(data) {
+    const raw = (data.message || data.data || '').toString();
+    const text = raw.replace(/<br\s*\/?>/gi, ' | ').trim();
+
+    // Login başarısız mı?
+    const loginFailed = /login.*?:\s*(fail|error|not found|not exist)/i.test(text)
+                        && !/login.*?:\s*success/i.test(text);
+    if (loginFailed) {
+      return { kind: 'error', label: '✗ ID bulunamadı', detail: text };
+    }
+
+    // Redeem sonucunu bul
+    const redeemMatch = text.match(/redeemed.*?:\s*([^|]+)/i);
+    const result = redeemMatch ? redeemMatch[1].trim() : text;
+    const lower = result.toLowerCase();
+
+    if (/^success/i.test(result)) {
+      return { kind: 'success', label: '✓ başarılı', detail: text };
+    }
+    if (/already|received|claimed|repeated|duplicate|redeem.*before/i.test(lower)) {
+      return { kind: 'skipped', label: '⊘ zaten kullanmış', detail: text };
+    }
+    if (/params|invalid|wrong|not exist|cdk|incorrect/i.test(lower)) {
+      return { kind: 'error', label: '✗ geçersiz kod', detail: text };
+    }
+    if (/expired|out of date|outdated|time/i.test(lower)) {
+      return { kind: 'error', label: '✗ süresi dolmuş', detail: text };
+    }
+    if (/captcha/i.test(lower)) {
+      return { kind: 'error', label: '✗ captcha', detail: text };
+    }
+    if (/limit|too many|rate|frequent/i.test(lower)) {
+      return { kind: 'error', label: '✗ rate limit', detail: text };
+    }
+    return { kind: 'error', label: '✗ ' + result.slice(0, 30), detail: text };
+  }
+
+  async function applyToAll() {
+    if (processing) return;
+    const code = document.getElementById('couponCode').value.trim();
+    if (!code) return alert('Kupon kodu gir.');
+    if (players.length === 0) return alert('Liste boş.');
+    if (!confirm(`${players.length} ID için "${code}" kuponu uygulanacak. Devam edilsin mi?`)) return;
+
+    processing = true;
+    stopRequested = false;
+    save();
+
+    const apiBase = (document.getElementById('apiBase').value.trim() || 'https://wgr.vercel.app').replace(/\/$/, '');
+    const delay = parseInt(document.getElementById('delay').value) || 2000;
+    const onError = document.getElementById('onError').value;
+
+    document.getElementById('applyBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'inline-block';
+    document.getElementById('progressBar').style.display = 'block';
+    document.getElementById('resultStats').style.display = 'flex';
+
+    let processed = 0, success = 0, skipped = 0, errors = 0;
+
+    for (let i = 0; i < players.length; i++) {
+      if (stopRequested) break;
+      const p = players[i];
+      const item = document.getElementById(`item-${i}`);
+      const badge = document.getElementById(`status-${i}`);
+      const detail = document.getElementById(`detail-${i}`);
+      item.className = 'id-item processing';
+      badge.style.display = 'inline-block';
+      badge.className = 'status-badge processing';
+      badge.textContent = 'işleniyor...';
+      detail.style.display = 'none';
+
+      try {
+        const url = `${apiBase}/api/redeem?id=${encodeURIComponent(p.id)}&code=${encodeURIComponent(code)}`;
+        const res = await fetch(url);
+        const data = await res.json().catch(() => ({}));
+        const parsed = parseResponse(data);
+
+        item.className = 'id-item ' + parsed.kind;
+        badge.className = 'status-badge ' + parsed.kind;
+        badge.textContent = parsed.label;
+        detail.textContent = parsed.detail;
+        detail.style.display = 'block';
+
+        if (parsed.kind === 'success') success++;
+        else if (parsed.kind === 'skipped') skipped++;
+        else { errors++; if (onError === 'stop') stopRequested = true; }
+      } catch (err) {
+        item.className = 'id-item error';
+        badge.className = 'status-badge error';
+        badge.textContent = '✗ ağ hatası (CORS?)';
+        detail.textContent = err.message + ' — Çözüm: HTML\'i kendi Vercel deployment\'ına yükle.';
+        detail.style.display = 'block';
+        errors++;
+        if (onError === 'stop') stopRequested = true;
+      }
+
+      processed++;
+      document.getElementById('processedCount').textContent = processed;
+      document.getElementById('successCount').textContent = success;
+      document.getElementById('skippedCount').textContent = skipped;
+      document.getElementById('errorCount').textContent = errors;
+      document.getElementById('progressFill').style.width = (processed / players.length * 100) + '%';
+
+      if (i < players.length - 1 && !stopRequested) {
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+
+    processing = false;
+    document.getElementById('applyBtn').style.display = 'inline-block';
+    document.getElementById('stopBtn').style.display = 'none';
+  }
+
+  function stopProcess() {
+    stopRequested = true;
+  }
+
+  document.getElementById('apiBase').addEventListener('change', save);
+  load();
+</script>
+</body>
+</html>
