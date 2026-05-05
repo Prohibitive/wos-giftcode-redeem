@@ -55,7 +55,7 @@
   button.danger { background: #c84545; }
   button.danger:hover:not(:disabled) { background: #a83838; }
   .id-list {
-    max-height: 280px;
+    max-height: 320px;
     overflow-y: auto;
     background: #0f1419;
     border: 1px solid #2a3142;
@@ -65,22 +65,32 @@
   .id-item {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     padding: 8px 12px;
     border-radius: 4px;
     margin-bottom: 4px;
     background: #1a1f2e;
     font-family: "SF Mono", Monaco, monospace;
     font-size: 13px;
+    gap: 8px;
   }
-  .id-item .info { display: flex; gap: 12px; align-items: center; flex: 1; }
+  .id-item .info { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0; flex-wrap: wrap; }
   .id-item .name { color: #888; font-family: inherit; font-size: 12px; }
+  .id-item .detail {
+    color: #aaa;
+    font-family: inherit;
+    font-size: 11px;
+    flex-basis: 100%;
+    margin-top: 4px;
+    word-break: break-word;
+  }
   .id-item button {
     padding: 4px 10px;
     font-size: 12px;
     background: transparent;
     border: 1px solid #c84545;
     color: #c84545;
+    flex: 0 0 auto;
   }
   .id-item button:hover { background: #c84545; color: #fff; }
   .id-item.processing { background: #2a3a5c; }
@@ -92,6 +102,7 @@
     padding: 2px 8px;
     border-radius: 10px;
     background: #2a3142;
+    white-space: nowrap;
   }
   .status-badge.success { background: #2a5c3a; color: #7cd99c; }
   .status-badge.error { background: #5c2a2a; color: #ff8888; }
@@ -140,20 +151,20 @@
 <body>
 <div class="container">
   <h1>🎁 WOS Toplu Kupon Kullanma</h1>
-  <p class="subtitle">Whiteout Survival - Saved IDs ile tek tıkla toplu kupon redeem</p>
+  <p class="subtitle">Whiteout Survival - Kayıtlı ID'lere tek tıkla toplu redeem</p>
 
   <div class="panel">
     <h2>⚙️ API Ayarı</h2>
     <div class="info-box">
-      <strong>Default:</strong> <code>https://wgr.vercel.app</code> (orijinal API)<br>
-      Kendi Vercel deployment'ını kullanmak istersen URL'yi değiştir (örn: <code>https://senin-projen.vercel.app</code>)
+      <strong>Default:</strong> <code>https://wgr.vercel.app</code> (test edildi, çalışıyor)<br>
+      CORS hatası alırsan: HTML'i kendi Vercel deployment'ına yükle, buraya <strong>kendi URL'ni</strong> yaz.
     </div>
     <input type="text" id="apiBase" placeholder="https://wgr.vercel.app" style="width:100%;">
   </div>
 
   <div class="panel">
     <h2>👥 Oyuncu ID Listesi</h2>
-    <label>Toplu ID ekle (her satıra bir ID, opsiyonel olarak <code>ID, isim</code> formatı)</label>
+    <label>Toplu ID ekle (her satıra bir ID, opsiyonel: <code>ID, isim</code>)</label>
     <textarea id="bulkInput" placeholder="123456789&#10;987654321, Ahmet&#10;111222333, Mehmet"></textarea>
     <div class="row" style="margin-top: 8px;">
       <button onclick="addBulk()">➕ Listeye Ekle</button>
@@ -173,7 +184,7 @@
   <div class="panel">
     <h2>🎟️ Kupon Kodu Uygula</h2>
     <div class="row">
-      <input type="text" id="couponCode" placeholder="Kupon kodu (örn: NewYear2025)" style="text-transform: uppercase;">
+      <input type="text" id="couponCode" placeholder="Kupon kodu (örn: HappyMayDay)">
       <button id="applyBtn" onclick="applyToAll()">🚀 Tüm ID'lere Uygula</button>
       <button class="danger" id="stopBtn" onclick="stopProcess()" style="display:none;">⏹ Durdur</button>
     </div>
@@ -182,7 +193,7 @@
       <div class="row" style="margin-top: 8px;">
         <div>
           <label>İstekler arası bekleme (ms)</label>
-          <input type="number" id="delay" value="1500" min="0" max="10000">
+          <input type="number" id="delay" value="2000" min="500" max="10000">
         </div>
         <div>
           <label>Hatada</label>
@@ -210,7 +221,6 @@
   let stopRequested = false;
   let processing = false;
 
-  // Load on start
   function load() {
     try {
       players = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -237,6 +247,7 @@
           <span>${p.id}</span>
           ${p.name ? `<span class="name">${escapeHtml(p.name)}</span>` : ''}
           <span class="status-badge" id="status-${i}" style="display:none;"></span>
+          <span class="detail" id="detail-${i}" style="display:none;"></span>
         </div>
         <button onclick="removeId(${i})">Sil</button>
       </div>
@@ -304,7 +315,6 @@
         if (file.name.endsWith('.json')) {
           imported = JSON.parse(text);
         } else {
-          // .txt: each line is "id" or "id, name"
           imported = text.split(/\n+/).map(l => l.trim()).filter(Boolean).map(l => {
             const [id, ...nameParts] = l.split(/[,;\t]/);
             return { id: id.trim().replace(/\D/g, ''), name: nameParts.join(',').trim() };
@@ -329,6 +339,44 @@
     event.target.value = '';
   }
 
+  // API cevap formatı: { "message": "Login {id}: success<br>Redeemed {code} for {id}: {result}" }
+  function parseResponse(data) {
+    const raw = (data.message || data.data || '').toString();
+    const text = raw.replace(/<br\s*\/?>/gi, ' | ').trim();
+
+    // Login başarısız mı?
+    const loginFailed = /login.*?:\s*(fail|error|not found|not exist)/i.test(text)
+                        && !/login.*?:\s*success/i.test(text);
+    if (loginFailed) {
+      return { kind: 'error', label: '✗ ID bulunamadı', detail: text };
+    }
+
+    // Redeem sonucunu bul
+    const redeemMatch = text.match(/redeemed.*?:\s*([^|]+)/i);
+    const result = redeemMatch ? redeemMatch[1].trim() : text;
+    const lower = result.toLowerCase();
+
+    if (/^success/i.test(result)) {
+      return { kind: 'success', label: '✓ başarılı', detail: text };
+    }
+    if (/already|received|claimed|repeated|duplicate|redeem.*before/i.test(lower)) {
+      return { kind: 'skipped', label: '⊘ zaten kullanmış', detail: text };
+    }
+    if (/params|invalid|wrong|not exist|cdk|incorrect/i.test(lower)) {
+      return { kind: 'error', label: '✗ geçersiz kod', detail: text };
+    }
+    if (/expired|out of date|outdated|time/i.test(lower)) {
+      return { kind: 'error', label: '✗ süresi dolmuş', detail: text };
+    }
+    if (/captcha/i.test(lower)) {
+      return { kind: 'error', label: '✗ captcha', detail: text };
+    }
+    if (/limit|too many|rate|frequent/i.test(lower)) {
+      return { kind: 'error', label: '✗ rate limit', detail: text };
+    }
+    return { kind: 'error', label: '✗ ' + result.slice(0, 30), detail: text };
+  }
+
   async function applyToAll() {
     if (processing) return;
     const code = document.getElementById('couponCode').value.trim();
@@ -338,10 +386,10 @@
 
     processing = true;
     stopRequested = false;
-    save(); // save api base
+    save();
 
     const apiBase = (document.getElementById('apiBase').value.trim() || 'https://wgr.vercel.app').replace(/\/$/, '');
-    const delay = parseInt(document.getElementById('delay').value) || 1500;
+    const delay = parseInt(document.getElementById('delay').value) || 2000;
     const onError = document.getElementById('onError').value;
 
     document.getElementById('applyBtn').style.display = 'none';
@@ -356,41 +404,36 @@
       const p = players[i];
       const item = document.getElementById(`item-${i}`);
       const badge = document.getElementById(`status-${i}`);
+      const detail = document.getElementById(`detail-${i}`);
       item.className = 'id-item processing';
       badge.style.display = 'inline-block';
       badge.className = 'status-badge processing';
       badge.textContent = 'işleniyor...';
+      detail.style.display = 'none';
 
       try {
         const url = `${apiBase}/api/redeem?id=${encodeURIComponent(p.id)}&code=${encodeURIComponent(code)}`;
         const res = await fetch(url);
         const data = await res.json().catch(() => ({}));
-        const status = data.status;
-        const msg = data.data || '';
+        const parsed = parseResponse(data);
 
-        if (status === 200) {
-          item.className = 'id-item success';
-          badge.className = 'status-badge success';
-          badge.textContent = '✓ başarılı';
-          success++;
-        } else if (status === 302 || /already|received|claimed/i.test(msg)) {
-          item.className = 'id-item skipped';
-          badge.className = 'status-badge skipped';
-          badge.textContent = '⊘ zaten kullanmış';
-          skipped++;
-        } else {
-          item.className = 'id-item error';
-          badge.className = 'status-badge error';
-          badge.textContent = '✗ ' + (msg || 'hata').slice(0, 30);
-          errors++;
-          if (onError === 'stop') { stopRequested = true; }
-        }
+        item.className = 'id-item ' + parsed.kind;
+        badge.className = 'status-badge ' + parsed.kind;
+        badge.textContent = parsed.label;
+        detail.textContent = parsed.detail;
+        detail.style.display = 'block';
+
+        if (parsed.kind === 'success') success++;
+        else if (parsed.kind === 'skipped') skipped++;
+        else { errors++; if (onError === 'stop') stopRequested = true; }
       } catch (err) {
         item.className = 'id-item error';
         badge.className = 'status-badge error';
-        badge.textContent = '✗ ağ hatası';
+        badge.textContent = '✗ ağ hatası (CORS?)';
+        detail.textContent = err.message + ' — Çözüm: HTML\'i kendi Vercel deployment\'ına yükle.';
+        detail.style.display = 'block';
         errors++;
-        if (onError === 'stop') { stopRequested = true; }
+        if (onError === 'stop') stopRequested = true;
       }
 
       processed++;
@@ -415,7 +458,6 @@
   }
 
   document.getElementById('apiBase').addEventListener('change', save);
-
   load();
 </script>
 </body>
